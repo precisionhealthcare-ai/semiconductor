@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Precision HCC — Semiconductor Ops Guide</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=IBM+Plex+Mono:wght@400;500&family=Lora:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:#F7F4EF; --surface:#FFFFFF; --ink:#1A1612; --ink2:#4A4540; --ink3:#8A857E;
+  --gold:#B8902A; --gold-bg:#FDF5E6; --gold-bdr:#E8D090;
+  --navy:#0F1E32; --navy2:#1A2E46; --rule:#E2DDD6;
+  --done-bg:#EFF7EC; --done-ink:#2D6B22; --done-bdr:#B8DFB0;
+  --danger:#C0392B; --danger-bg:#FDF0EE; --danger-bdr:#F0C0B8;
+}
+html { font-size:16px; scroll-behavior:smooth; }
+body { background:var(--bg); color:var(--ink); font-family:'Syne',sans-serif; font-weight:400; min-height:100vh; }
+
+/* ── Auth screen ── */
+#auth-screen {
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background:var(--navy); padding:24px;
+}
+.auth-card {
+  background:#fff; border-radius:4px; padding:40px;
+  width:100%; max-width:400px;
+}
+.auth-logo { font-size:15px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:var(--navy); margin-bottom:4px; }
+.auth-logo span { color:var(--gold); }
+.auth-tagline { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; color:var(--ink3); margin-bottom:28px; }
+.auth-title { font-size:22px; font-weight:700; color:var(--ink); margin-bottom:20px; }
+.auth-tabs { display:flex; gap:0; margin-bottom:24px; border:1px solid var(--rule); border-radius:3px; overflow:hidden; }
+.auth-tab { flex:1; padding:9px; text-align:center; font-size:12px; font-weight:700; cursor:pointer; background:var(--bg); color:var(--ink3); border:none; transition:all 0.15s; }
+.auth-tab.active { background:var(--navy); color:#fff; }
+.form-group { margin-bottom:16px; }
+.form-label { display:block; font-size:11px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--ink2); margin-bottom:6px; }
+.form-input { width:100%; padding:10px 12px; border:1px solid var(--rule); border-radius:3px; font-family:'Syne',sans-serif; font-size:14px; color:var(--ink); background:#fff; outline:none; transition:border-color 0.15s; }
+.form-input:focus { border-color:var(--gold); }
+.form-hint { font-size:11px; color:var(--ink3); margin-top:5px; font-family:'IBM Plex Mono',monospace; }
+.auth-btn { width:100%; padding:12px; background:var(--navy); color:#fff; border:none; border-radius:3px; font-family:'Syne',sans-serif; font-size:13px; font-weight:700; letter-spacing:0.06em; cursor:pointer; transition:background 0.15s; margin-top:4px; }
+.auth-btn:hover { background:#1a3050; }
+.auth-error { background:var(--danger-bg); border:1px solid var(--danger-bdr); color:var(--danger); font-size:12px; padding:10px 12px; border-radius:3px; margin-bottom:16px; display:none; }
+.auth-error.show { display:block; }
+
+/* ── App shell ── */
+#app-screen { display:none; }
+#app-screen.show { display:flex; min-height:100vh; }
+
+/* ── Sidebar ── */
+.sidebar { width:270px; flex-shrink:0; background:var(--navy); display:flex; flex-direction:column; position:sticky; top:0; height:100vh; overflow-y:auto; }
+.sidebar-header { padding:24px 20px 16px; border-bottom:1px solid rgba(255,255,255,0.08); }
+.sidebar-logo { font-size:13px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:#F7F4EF; margin-bottom:2px; }
+.sidebar-logo span { color:#C9A84C; }
+.sidebar-user { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-top:4px; }
+.progress-block { padding:14px 20px; border-bottom:1px solid rgba(255,255,255,0.08); }
+.progress-label { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:rgba(255,255,255,0.35); margin-bottom:6px; }
+.progress-bar-wrap { height:4px; background:rgba(255,255,255,0.1); border-radius:2px; margin-bottom:5px; overflow:hidden; }
+.progress-bar-fill { height:100%; background:#C9A84C; border-radius:2px; transition:width 0.4s ease; }
+.progress-numbers { font-family:'IBM Plex Mono',monospace; font-size:10px; color:rgba(255,255,255,0.35); display:flex; justify-content:space-between; }
+.progress-numbers span:first-child { color:#C9A84C; }
+.cap-nav { padding:8px 0; flex:1; }
+.cap-nav-item { display:flex; align-items:center; gap:10px; padding:10px 20px; cursor:pointer; border-left:3px solid transparent; transition:all 0.15s; }
+.cap-nav-item:hover { background:rgba(255,255,255,0.05); }
+.cap-nav-item.active { background:rgba(255,255,255,0.07); }
+.cap-nav-item.active[data-cap="0"] { border-left-color:#C9A84C; }
+.cap-nav-item.active[data-cap="1"] { border-left-color:#5BA4D4; }
+.cap-nav-item.active[data-cap="2"] { border-left-color:#D47A6A; }
+.cap-nav-item.active[data-cap="3"] { border-left-color:#5AC49A; }
+.cap-nav-item.active[data-cap="admin"] { border-left-color:#A080D0; }
+.cap-nav-dot { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; }
+.cap-nav-item[data-cap="0"] .cap-nav-dot { background:rgba(201,168,76,0.15); color:#C9A84C; border:1px solid rgba(201,168,76,0.3); }
+.cap-nav-item[data-cap="1"] .cap-nav-dot { background:rgba(91,164,212,0.15); color:#5BA4D4; border:1px solid rgba(91,164,212,0.3); }
+.cap-nav-item[data-cap="2"] .cap-nav-dot { background:rgba(212,122,106,0.15); color:#D47A6A; border:1px solid rgba(212,122,106,0.3); }
+.cap-nav-item[data-cap="3"] .cap-nav-dot { background:rgba(90,196,154,0.15); color:#5AC49A; border:1px solid rgba(90,196,154,0.3); }
+.cap-nav-item[data-cap="admin"] .cap-nav-dot { background:rgba(160,128,208,0.15); color:#A080D0; border:1px solid rgba(160,128,208,0.3); font-size:9px; }
+.cap-nav-label { flex:1; }
+.cap-nav-title { font-size:11px; font-weight:700; color:rgba(255,255,255,0.8); line-height:1.2; margin-bottom:1px; }
+.cap-nav-prog { font-family:'IBM Plex Mono',monospace; font-size:9px; color:rgba(255,255,255,0.3); }
+.cap-nav-item.active .cap-nav-title { color:#fff; }
+.sidebar-footer { padding:12px 20px; border-top:1px solid rgba(255,255,255,0.08); display:flex; gap:8px; }
+.sb-btn { flex:1; padding:8px 4px; background:transparent; border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.35); font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer; border-radius:2px; transition:all 0.15s; }
+.sb-btn:hover { border-color:rgba(255,255,255,0.25); color:rgba(255,255,255,0.6); }
+
+/* ── Main ── */
+.main { flex:1; overflow-y:auto; }
+.cap-panel { display:none; }
+.cap-panel.active { display:block; }
+
+/* ── Cap hero ── */
+.cap-hero { padding:40px 48px 28px; border-bottom:1px solid var(--rule); position:relative; overflow:hidden; }
+.cap-hero::before { content:attr(data-num); position:absolute; right:32px; top:-8px; font-family:'Syne',sans-serif; font-size:140px; font-weight:800; opacity:0.04; color:var(--ink); line-height:1; pointer-events:none; user-select:none; }
+.cap-tag { display:inline-flex; align-items:center; gap:8px; padding:4px 10px; border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:12px; }
+.cap-panel[data-cap="0"] .cap-tag { background:#FDF3D8; color:#7A5C0A; border:1px solid #E8D090; }
+.cap-panel[data-cap="1"] .cap-tag { background:#E8F2FA; color:#0A3C6A; border:1px solid #90C0E8; }
+.cap-panel[data-cap="2"] .cap-tag { background:#FAE8E6; color:#6A1A10; border:1px solid #E89090; }
+.cap-panel[data-cap="3"] .cap-tag { background:#E8FAF2; color:#0A4A2A; border:1px solid #90E8C0; }
+.cap-panel[data-cap="admin"] .cap-tag { background:#F0EBFC; color:#4A2A8A; border:1px solid #C0A0E8; }
+.cap-title { font-size:32px; font-weight:800; line-height:1.05; color:var(--ink); margin-bottom:10px; }
+.cap-desc { font-family:'Lora',serif; font-size:14px; color:var(--ink2); line-height:1.75; max-width:600px; margin-bottom:16px; }
+.cap-progress-row { display:flex; align-items:center; gap:14px; }
+.cap-progress-bar-wrap { flex:1; max-width:260px; height:5px; background:var(--rule); border-radius:3px; overflow:hidden; }
+.cap-progress-bar-fill { height:100%; border-radius:3px; transition:width 0.4s ease; }
+.cap-panel[data-cap="0"] .cap-progress-bar-fill { background:#C9A84C; }
+.cap-panel[data-cap="1"] .cap-progress-bar-fill { background:#2458A0; }
+.cap-panel[data-cap="2"] .cap-progress-bar-fill { background:#A03020; }
+.cap-panel[data-cap="3"] .cap-progress-bar-fill { background:#208050; }
+.cap-progress-text { font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink3); }
+
+/* ── Cap body ── */
+.cap-body { padding:0 48px 56px; }
+.section-block { margin-top:36px; }
+.section-block-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid var(--rule); }
+.section-block-num { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink3); }
+.section-block-title { font-size:15px; font-weight:700; color:var(--ink); }
+.section-block-badge { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; padding:3px 8px; border-radius:2px; }
+.cap-panel[data-cap="0"] .section-block-badge { background:#FDF3D8; color:#7A5C0A; }
+.cap-panel[data-cap="1"] .section-block-badge { background:#E8F2FA; color:#0A3C6A; }
+.cap-panel[data-cap="2"] .section-block-badge { background:#FAE8E6; color:#6A1A10; }
+.cap-panel[data-cap="3"] .section-block-badge { background:#E8FAF2; color:#0A4A2A; }
+
+/* ── Guidance ── */
+.guidance-box { background:var(--surface); border:1px solid var(--rule); border-radius:3px; padding:16px 20px; margin-bottom:12px; }
+.guidance-label { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink3); margin-bottom:6px; }
+.guidance-text { font-family:'Lora',serif; font-size:13.5px; color:var(--ink2); line-height:1.75; }
+.guidance-text strong { font-weight:700; color:var(--ink); }
+
+/* ── Callouts ── */
+.callout { display:flex; gap:12px; padding:12px 16px; border-radius:3px; margin-bottom:12px; }
+.callout-warn { background:#FFFAEB; border:1px solid #F0DC90; }
+.callout-info { background:#EEF4FB; border:1px solid #90BCE8; }
+.callout-tip  { background:#EEFAF4; border:1px solid #90DEB8; }
+.callout-icon { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:500; flex-shrink:0; padding-top:1px; }
+.callout-warn .callout-icon { color:#8A6000; }
+.callout-info .callout-icon { color:#0A3C7A; }
+.callout-tip  .callout-icon { color:#0A5A30; }
+.callout-text { font-size:12px; line-height:1.6; }
+.callout-warn .callout-text { color:#5A3A00; }
+.callout-info .callout-text { color:#0A2A5A; }
+.callout-tip  .callout-text { color:#0A3A20; }
+.callout-text strong { font-weight:700; }
+
+/* ── Checklist ── */
+.checklist { display:flex; flex-direction:column; gap:0; }
+.check-item { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border:1px solid var(--rule); border-top:none; background:var(--surface); cursor:pointer; position:relative; transition:background 0.12s; }
+.check-item:first-child { border-top:1px solid var(--rule); border-radius:3px 3px 0 0; }
+.check-item:last-child { border-radius:0 0 3px 3px; }
+.check-item:hover { background:#FAFAF8; }
+.check-item.done { background:var(--done-bg); border-color:var(--done-bdr); }
+.check-box { width:18px; height:18px; border:1.5px solid var(--rule); border-radius:3px; flex-shrink:0; margin-top:2px; display:flex; align-items:center; justify-content:center; transition:all 0.12s; background:var(--surface); pointer-events:none; }
+.check-item.done .check-box { background:var(--done-ink); border-color:var(--done-ink); }
+.check-mark { width:9px; height:9px; opacity:0; transition:opacity 0.12s; pointer-events:none; }
+.check-item.done .check-mark { opacity:1; }
+.check-content { flex:1; min-width:0; pointer-events:none; }
+.check-title { font-size:13px; font-weight:700; color:var(--ink); margin-bottom:2px; line-height:1.3; }
+.check-item.done .check-title { color:var(--done-ink); text-decoration:line-through; text-decoration-color:rgba(45,107,34,0.4); }
+.check-detail { font-size:11.5px; color:var(--ink3); line-height:1.55; }
+.check-item.done .check-detail { color:rgba(45,107,34,0.55); }
+.check-right { display:flex; flex-direction:column; align-items:flex-end; gap:4px; flex-shrink:0; pointer-events:none; }
+.check-priority { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; padding:2px 7px; border-radius:2px; }
+.priority-high { background:#FEF0EE; color:#8A2010; border:1px solid #F0C0B8; }
+.priority-med  { background:#FFF8E8; color:#7A5800; border:1px solid #F0DC90; }
+.priority-low  { background:#EEF6EE; color:#285A20; border:1px solid #B8D8B0; }
+
+/* ── Note trigger ── */
+.note-btn { background:none; border:none; cursor:pointer; font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink3); padding:2px 0; pointer-events:all; transition:color 0.12s; }
+.note-btn:hover { color:var(--gold); }
+.note-count { display:inline-block; background:var(--gold-bg); color:var(--gold); border-radius:2px; padding:0 5px; font-size:9px; margin-left:3px; }
+
+/* ── Note drawer ── */
+.note-drawer { display:none; background:#FAFAF8; border:1px solid var(--rule); border-top:none; padding:12px 14px 14px; border-radius:0 0 3px 3px; }
+.note-drawer.open { display:block; }
+.note-list { display:flex; flex-direction:column; gap:6px; margin-bottom:10px; }
+.note-item { background:var(--surface); border:1px solid var(--rule); border-radius:2px; padding:8px 10px; position:relative; }
+.note-author { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--gold); text-transform:uppercase; letter-spacing:0.08em; margin-bottom:2px; }
+.note-text { font-size:12px; color:var(--ink2); line-height:1.5; }
+.note-time { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink3); margin-top:3px; }
+.note-delete { position:absolute; top:6px; right:8px; background:none; border:none; color:var(--ink3); cursor:pointer; font-size:13px; line-height:1; padding:0; }
+.note-delete:hover { color:var(--danger); }
+.note-add-row { display:flex; gap:6px; }
+.note-input { flex:1; padding:8px 10px; border:1px solid var(--rule); border-radius:2px; font-family:'Syne',sans-serif; font-size:12px; color:var(--ink); outline:none; }
+.note-input:focus { border-color:var(--gold); }
+.note-submit { padding:8px 14px; background:var(--navy); color:#fff; border:none; border-radius:2px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+.note-submit:hover { background:#1a3050; }
+
+/* ── Done banner ── */
+.done-banner { display:none; align-items:center; gap:10px; padding:12px 16px; background:var(--done-bg); border:1px solid var(--done-bdr); border-radius:3px; margin-top:14px; }
+.done-banner.visible { display:flex; }
+.done-banner-text { font-size:13px; font-weight:700; color:var(--done-ink); }
+.done-banner-sub { font-size:11px; color:rgba(45,107,34,0.7); }
+
+/* ── Saving indicator ── */
+.save-indicator { position:fixed; bottom:20px; right:20px; background:var(--navy); color:#fff; padding:8px 14px; border-radius:3px; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.08em; opacity:0; transition:opacity 0.3s; pointer-events:none; z-index:999; }
+.save-indicator.show { opacity:1; }
+
+/* ── Admin panel ── */
+.admin-body { padding:0 48px 56px; }
+.admin-section { margin-top:32px; }
+.admin-section-title { font-size:16px; font-weight:700; color:var(--ink); margin-bottom:14px; padding-bottom:10px; border-bottom:2px solid var(--rule); }
+.stat-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:12px; margin-bottom:24px; }
+.stat-card { background:var(--surface); border:1px solid var(--rule); border-radius:3px; padding:16px; }
+.stat-num { font-family:'Syne',sans-serif; font-size:28px; font-weight:800; color:var(--navy); line-height:1; margin-bottom:4px; }
+.stat-label { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink3); }
+.team-table { width:100%; border-collapse:collapse; font-size:13px; }
+.team-table th { text-align:left; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:var(--ink3); padding:8px 10px; border-bottom:2px solid var(--rule); }
+.team-table td { padding:10px 10px; border-bottom:1px solid var(--rule); vertical-align:middle; }
+.team-table tr:hover td { background:#FAFAF8; }
+.member-name { font-weight:700; color:var(--ink); }
+.member-email { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink3); }
+.role-badge { font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.08em; text-transform:uppercase; padding:2px 7px; border-radius:2px; }
+.role-admin  { background:#F0EBFC; color:#4A2A8A; border:1px solid #C0A0E8; }
+.role-member { background:var(--bg); color:var(--ink3); border:1px solid var(--rule); }
+.mini-bars { display:flex; gap:4px; align-items:center; }
+.mini-bar-wrap { width:40px; height:6px; background:var(--rule); border-radius:2px; overflow:hidden; }
+.mini-bar-fill { height:100%; border-radius:2px; }
+.mini-bar-fill.c0 { background:#C9A84C; }
+.mini-bar-fill.c1 { background:#2458A0; }
+.mini-bar-fill.c2 { background:#A03020; }
+.mini-bar-fill.c3 { background:#208050; }
+.action-btn { padding:4px 10px; background:transparent; border:1px solid var(--rule); border-radius:2px; font-family:'IBM Plex Mono',monospace; font-size:9px; text-transform:uppercase; cursor:pointer; color:var(--ink3); transition:all 0.12s; }
+.action-btn:hover { border-color:var(--ink3); color:var(--ink); }
+.action-btn.danger:hover { border-color:var(--danger); color:var(--danger); }
+.recent-list { display:flex; flex-direction:column; gap:0; }
+.recent-item { display:flex; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--rule); font-size:12px; }
+.recent-item:last-child { border-bottom:none; }
+.recent-who { font-weight:700; color:var(--ink); min-width:100px; }
+.recent-key { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--ink3); flex:1; }
+.recent-time { font-family:'IBM Plex Mono',monospace; font-size:9px; color:var(--ink3); }
+
+/* ── Loading ── */
+.loading-overlay { position:fixed; inset:0; background:var(--navy); display:flex; align-items:center; justify-content:center; z-index:9999; transition:opacity 0.4s; }
+.loading-overlay.hide { opacity:0; pointer-events:none; }
+.loading-logo { font-size:20px; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#F7F4EF; }
+.loading-logo span { color:#C9A84C; }
+</style>
+</head>
+<body>
+
+<div class="loading-overlay" id="loader">
+  <div class="loading-logo">Precision <span>HCC</span></div>
+</div>
+
+<!-- AUTH -->
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-logo">Precision <span>HCC</span></div>
+    <div class="auth-tagline">Semiconductor Ops Guide</div>
+    <div class="auth-title" id="auth-title">Sign in</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login" onclick="switchTab('login')">Sign in</button>
+      <button class="auth-tab" id="tab-register" onclick="switchTab('register')">Register</button>
+    </div>
+    <div class="auth-error" id="auth-error"></div>
+
+    <!-- Login form -->
+    <div id="login-form">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="login-email" placeholder="you@precisionhcc.com" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="auth-btn" onclick="doLogin()">Sign in</button>
+    </div>
+
+    <!-- Register form -->
+    <div id="register-form" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Full name</label>
+        <input class="form-input" type="text" id="reg-name" placeholder="Vanessa Best">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="reg-email" placeholder="you@precisionhcc.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" type="password" id="reg-password" placeholder="Min. 6 characters">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Invite code</label>
+        <input class="form-input" type="text" id="reg-invite" placeholder="Ask Vanessa for the code">
+        <div class="form-hint">Required to create an account</div>
+      </div>
+      <button class="auth-btn" onclick="doRegister()">Create account</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-screen">
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="sidebar-logo">Precision <span>HCC</span></div>
+    <div class="sidebar-user" id="sidebar-user">Loading...</div>
+  </div>
+  <div class="progress-block">
+    <div class="progress-label">Overall completion</div>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="global-bar" style="width:0%"></div></div>
+    <div class="progress-numbers"><span id="global-done">0</span><span id="global-total">0 tasks</span></div>
+  </div>
+  <nav class="cap-nav">
+    <div class="cap-nav-item active" data-cap="0" onclick="showCap('0')">
+      <div class="cap-nav-dot">01</div>
+      <div class="cap-nav-label">
+        <div class="cap-nav-title">Compliance &amp; Docs</div>
+        <div class="cap-nav-prog" id="nav-prog-0">0 / 0</div>
+      </div>
+    </div>
+    <div class="cap-nav-item" data-cap="1" onclick="showCap('1')">
+      <div class="cap-nav-dot">02</div>
+      <div class="cap-nav-label">
+        <div class="cap-nav-title">Workforce Infrastructure</div>
+        <div class="cap-nav-prog" id="nav-prog-1">0 / 0</div>
+      </div>
+    </div>
+    <div class="cap-nav-item" data-cap="2" onclick="showCap('2')">
+      <div class="cap-nav-dot">03</div>
+      <div class="cap-nav-label">
+        <div class="cap-nav-title">Safety &amp; Risk Compliance</div>
+        <div class="cap-nav-prog" id="nav-prog-2">0 / 0</div>
+      </div>
+    </div>
+    <div class="cap-nav-item" data-cap="3" onclick="showCap('3')">
+      <div class="cap-nav-dot">04</div>
+      <div class="cap-nav-label">
+        <div class="cap-nav-title">Electronics &amp; Instrumentation</div>
+        <div class="cap-nav-prog" id="nav-prog-3">0 / 0</div>
+      </div>
+    </div>
+    <div class="cap-nav-item" data-cap="admin" id="admin-nav-item" style="display:none" onclick="showCap('admin')">
+      <div class="cap-nav-dot">ADM</div>
+      <div class="cap-nav-label">
+        <div class="cap-nav-title">Admin Dashboard</div>
+        <div class="cap-nav-prog">Team overview</div>
+      </div>
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <button class="sb-btn" onclick="logout()">Sign out</button>
+  </div>
+</aside>
+
+<main class="main" id="main-content">
+
+<!-- CAP 0 -->
+<div class="cap-panel active" data-cap="0">
+  <div class="cap-hero" data-num="01">
+    <div class="cap-tag">Capability 01 · NAICS 541611</div>
+    <h1 class="cap-title">Compliance &amp;<br>Documentation Systems</h1>
+    <p class="cap-desc">ISO 9001-backed documentation infrastructure for semiconductor fabs — SOPs, audit readiness, EHS reporting, and traceability systems that keep projects compliant at every stage.</p>
+    <div class="cap-progress-row">
+      <div class="cap-progress-bar-wrap"><div class="cap-progress-bar-fill" id="bar-0" style="width:0%"></div></div>
+      <span class="cap-progress-text" id="prog-text-0">0 of 0 complete</span>
+    </div>
+  </div>
+  <div class="cap-body">
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">A</span><span class="section-block-title">SOP Development &amp; Document Control</span><span class="section-block-badge">Foundation</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">SOPs are the backbone of fab compliance. Every procedure must be <strong>version-controlled, reviewed, and traceable</strong>. Fabs expect documented evidence that SOPs exist, are current, and have been acknowledged by the relevant staff. Start with the highest-risk processes first (EHS, cleanroom access, contractor onboarding) and build outward.</div></div>
+      <div class="callout callout-warn"><span class="callout-icon">! WARN</span><div class="callout-text"><strong>ISO 9001 requirement:</strong> All documents must have a unique identifier, revision date, approval signature, and defined review cycle. Undated or unsigned SOPs will fail a supplier audit immediately.</div></div>
+      <div class="checklist" data-cap="0">
+        <div class="check-item" data-key="c0_a_0" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create SOP master template with required fields</div><div class="check-detail">Template must include: Document ID, Title, Version, Effective Date, Review Date, Author, Approver signature, Scope, Purpose, Procedure steps, Related documents. Use consistent header/footer across all SOPs.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c0_a_0',this)">Notes <span class="note-count" id="nc_c0_a_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_a_0"></div>
+        <div class="check-item" data-key="c0_a_1" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build document control log (master register)</div><div class="check-detail">Spreadsheet or system tracking every SOP: Document number, Title, Current version, Owner, Last reviewed, Next review date, Status (Active/Obsolete/Draft). This IS the audit trail.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c0_a_1',this)">Notes <span class="note-count" id="nc_c0_a_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_a_1"></div>
+        <div class="check-item" data-key="c0_a_2" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Draft priority SOPs: cleanroom access, contractor onboarding, EHS incident reporting</div><div class="check-detail">These three are asked for first in every fab supplier audit. Cleanroom SOP must cover gowning sequence, prohibited items, and violation reporting. Contractor SOP must cover vetting, badging, orientation acknowledgment, and site-specific rules.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c0_a_2',this)">Notes <span class="note-count" id="nc_c0_a_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_a_2"></div>
+        <div class="check-item" data-key="c0_a_3" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Establish review and approval workflow</div><div class="check-detail">Define who drafts, who reviews (technical accuracy), who approves (management authority), and who distributes. Document this process itself as an SOP. All approvals must be signed and dated.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c0_a_3',this)">Notes <span class="note-count" id="nc_c0_a_3"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_a_3"></div>
+        <div class="check-item" data-key="c0_a_4" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Set up obsolete document controls</div><div class="check-detail">Old versions must be marked OBSOLETE and removed from active use but retained for minimum 3 years. Never delete — auditors may request prior versions to demonstrate change history.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c0_a_4',this)">Notes <span class="note-count" id="nc_c0_a_4"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_a_4"></div>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">B</span><span class="section-block-title">Audit Readiness &amp; ISO 9001 Alignment</span><span class="section-block-badge">Critical</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">Precision holds ISO 9001 certification — this must be <strong>demonstrated, not just stated</strong>. Prepare a supplier qualification packet so you can respond to RFQ requests within 48 hours.</div></div>
+      <div class="callout callout-info"><span class="callout-icon">i INFO</span><div class="callout-text"><strong>Micron and GlobalFoundries both conduct supplier audits.</strong> They will request your ISO 9001 certificate number, issuing body, scope, and most recent surveillance audit date. Have these printed and in a folder at all times.</div></div>
+      <div class="checklist" data-cap="0">
+        <div class="check-item" data-key="c0_b_0" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Prepare supplier qualification packet</div><div class="check-detail">Include: ISO 9001 certificate (copy), certificate scope statement, QMS overview (1-page), SAM registration printout, GSA MAS contract summary, small business certifications (WOSB/EDWOSB/SDB/8a), UEI number, and contact sheet. Keep digital and physical copies.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c0_b_0',this)">Notes <span class="note-count" id="nc_c0_b_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_b_0"></div>
+        <div class="check-item" data-key="c0_b_1" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Document internal audit schedule and results</div><div class="check-detail">ISO 9001 requires internal audits at planned intervals. Maintain an audit schedule, completed audit reports, and corrective action records. Auditors will ask: "When was your last internal audit? What findings? How were they closed?"</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c0_b_1',this)">Notes <span class="note-count" id="nc_c0_b_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_b_1"></div>
+        <div class="check-item" data-key="c0_b_2" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create and maintain CAPA log</div><div class="check-detail">Every nonconformance must be logged, investigated (root cause), corrected, and verified. CAPA log is reviewed in every ISO surveillance audit.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c0_b_2',this)">Notes <span class="note-count" id="nc_c0_b_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_b_2"></div>
+        <div class="check-item" data-key="c0_b_3" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Complete RBA Code of Conduct self-assessment</div><div class="check-detail">Required by Micron, Samsung, TSMC, and Qualcomm. Download the RBA self-assessment questionnaire from responsiblebusiness.org. Complete all sections covering labor, ethics, health &amp; safety, environment, and management systems.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c0_b_3',this)">Notes <span class="note-count" id="nc_c0_b_3"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_b_3"></div>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">C</span><span class="section-block-title">Vendor &amp; Subcontractor Documentation</span><span class="section-block-badge">Ongoing</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">Fabs hold Precision responsible for the compliance of every subcontractor and vendor. <strong>Every vendor file must be complete before work begins</strong> — not after.</div></div>
+      <div class="checklist" data-cap="0">
+        <div class="check-item" data-key="c0_c_0" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build vendor pre-qualification packet template</div><div class="check-detail">Required fields: Business name, address, SAM registration, insurance certificates (GL, workers comp, auto), W-9, licenses, certifications, reference contacts, signed code of conduct acknowledgment. Every vendor gets a file before first PO.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c0_c_0',this)">Notes <span class="note-count" id="nc_c0_c_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_c_0"></div>
+        <div class="check-item" data-key="c0_c_1" data-cap="0" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create subcontractor compliance verification system</div><div class="check-detail">Track insurance expiry dates, license renewals, and certification expirations. Set calendar alerts 60 days before any document expires. A lapsed insurance certificate can halt work on a fab site with no notice.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c0_c_1',this)">Notes <span class="note-count" id="nc_c0_c_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c0_c_1"></div>
+      </div>
+    </div>
+    <div id="done-0" class="done-banner"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="#2D6B22"/><polyline points="5.5,10 8.5,13 14.5,7" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><div><div class="done-banner-text">Capability 1 complete!</div><div class="done-banner-sub">Compliance &amp; Documentation systems checklist finished.</div></div></div>
+  </div>
+</div>
+
+<!-- CAP 1 -->
+<div class="cap-panel" data-cap="1">
+  <div class="cap-hero" data-num="02">
+    <div class="cap-tag">Capability 02 · Workforce Ops</div>
+    <h1 class="cap-title">Workforce<br>Infrastructure</h1>
+    <p class="cap-desc">End-to-end workforce pods deployable in 30–60 days — contractor onboarding, cleanroom orientation, LMS tracking, administrative staffing, and compliance reporting dashboards.</p>
+    <div class="cap-progress-row"><div class="cap-progress-bar-wrap"><div class="cap-progress-bar-fill" id="bar-1" style="width:0%"></div></div><span class="cap-progress-text" id="prog-text-1">0 of 0 complete</span></div>
+  </div>
+  <div class="cap-body">
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">A</span><span class="section-block-title">Contractor Onboarding System</span><span class="section-block-badge">Day 1 Priority</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">Semiconductor fabs have <strong>zero tolerance for unvetted individuals on site</strong>. Every contractor must complete a defined onboarding sequence — no exceptions. Build the system so that no badge is issued until all steps are confirmed complete.</div></div>
+      <div class="callout callout-warn"><span class="callout-icon">! WARN</span><div class="callout-text"><strong>Critical:</strong> Cleanroom access requires documented acknowledgment of gowning procedures, contamination protocols, and prohibited items. A contractor who enters without this documentation creates liability for Precision.</div></div>
+      <div class="checklist" data-cap="1">
+        <div class="check-item" data-key="c1_a_0" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Design contractor onboarding packet (master template)</div><div class="check-detail">Include: personal info form, emergency contact, identity verification checklist, signed NDA, site rules acknowledgment, cleanroom protocol acknowledgment (if applicable), drug test consent, background check consent, photo ID copy, and badge application. Each page must be signed and dated.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c1_a_0',this)">Notes <span class="note-count" id="nc_c1_a_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_a_0"></div>
+        <div class="check-item" data-key="c1_a_1" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create cleanroom gowning orientation guide</div><div class="check-detail">Step-by-step gowning sequence: booties, coverall, hood, gloves, face mask order and technique. Include prohibited items, contamination reporting procedures, and cleanroom conduct rules. Must be site-specific for each fab client.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c1_a_1',this)">Notes <span class="note-count" id="nc_c1_a_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_a_1"></div>
+        <div class="check-item" data-key="c1_a_2" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Establish badge management and access tracking log</div><div class="check-detail">Track every badge: contractor name, issue date, access level, expiry date, areas permitted, and return status. Badges must be deactivated the day a contractor's engagement ends. Maintain log for 3 years minimum.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c1_a_2',this)">Notes <span class="note-count" id="nc_c1_a_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_a_2"></div>
+        <div class="check-item" data-key="c1_a_3" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build onboarding status tracker (per engagement)</div><div class="check-detail">Track each contractor through stages: Applied → Background check → Drug test → Orientation → Documentation complete → Badge issued → Active. Color-code by status. At any point a fab client should be able to see exactly where each contractor stands.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c1_a_3',this)">Notes <span class="note-count" id="nc_c1_a_3"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_a_3"></div>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">B</span><span class="section-block-title">LMS / Training Records System</span><span class="section-block-badge">Compliance</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">Every training event must be documented — who attended, what was covered, when, who delivered it, and the worker's acknowledgment signature. <strong>Verbal training does not exist in an audit.</strong> If it isn't written down with a signature, it didn't happen.</div></div>
+      <div class="checklist" data-cap="1">
+        <div class="check-item" data-key="c1_b_0" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Set up training record system (LMS or structured spreadsheet)</div><div class="check-detail">For each training event capture: Employee/contractor name, Training title, Date, Duration, Instructor/provider, Pass/fail or completion status, Expiry date (if recertification required), Signed acknowledgment on file. System must be searchable by person and by training topic.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c1_b_0',this)">Notes <span class="note-count" id="nc_c1_b_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_b_0"></div>
+        <div class="check-item" data-key="c1_b_1" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create training matrix (role × required training)</div><div class="check-detail">Map every role against all required training modules. Matrix shows at a glance who needs what. Gaps in the matrix = compliance gaps. Update whenever new training requirements are added.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c1_b_1',this)">Notes <span class="note-count" id="nc_c1_b_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_b_1"></div>
+        <div class="check-item" data-key="c1_b_2" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build compliance reporting dashboard</div><div class="check-detail">Weekly/monthly report showing: total headcount, onboarding completion rate, training completion by module, certifications expiring in next 30/60/90 days, open corrective actions, badge status summary. Send to fab clients to demonstrate operational control.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c1_b_2',this)">Notes <span class="note-count" id="nc_c1_b_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_b_2"></div>
+        <div class="check-item" data-key="c1_b_3" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Establish expiry alert system for certifications</div><div class="check-detail">OSHA 10/30, First Aid/CPR, cleanroom certifications all have expiry dates. Set alerts at 90, 60, and 30 days before expiry. Expired certifications must be renewed before the worker continues in that role.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c1_b_3',this)">Notes <span class="note-count" id="nc_c1_b_3"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_b_3"></div>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">C</span><span class="section-block-title">Workforce Scaling &amp; Pod Deployment</span><span class="section-block-badge">Growth</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">The 30–60 day deployment promise requires <strong>pre-built systems, not ad-hoc setup</strong>. Every tool, template, and workflow should be ready to replicate before an engagement starts. Think of it as a franchise kit.</div></div>
+      <div class="checklist" data-cap="1">
+        <div class="check-item" data-key="c1_c_0" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build workforce pod deployment playbook</div><div class="check-detail">Document every step from contract signed to pod operational: Day 1–5 (client kickoff, site rules review, template customization), Week 2–3 (system configuration, staff orientation, initial onboarding runs), Week 4–8 (full operations, first reporting cycle, client review). Assign task owners and deadlines.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c1_c_0',this)">Notes <span class="note-count" id="nc_c1_c_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_c_0"></div>
+        <div class="check-item" data-key="c1_c_1" data-cap="1" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Develop administrative workflow optimization guide</div><div class="check-detail">For high-volume onboarding (100+ contractors), document batch processing workflows: how to schedule orientation sessions in groups, how to run parallel document collection, how to manage exceptions without slowing the main queue.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c1_c_1',this)">Notes <span class="note-count" id="nc_c1_c_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c1_c_1"></div>
+      </div>
+    </div>
+    <div id="done-1" class="done-banner"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="#2D6B22"/><polyline points="5.5,10 8.5,13 14.5,7" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><div><div class="done-banner-text">Capability 2 complete!</div><div class="done-banner-sub">Workforce Infrastructure checklist finished.</div></div></div>
+  </div>
+</div>
+
+<!-- CAP 2 -->
+<div class="cap-panel" data-cap="2">
+  <div class="cap-hero" data-num="03">
+    <div class="cap-tag">Capability 03 · EHS &amp; Risk</div>
+    <h1 class="cap-title">Safety &amp; Risk<br>Compliance</h1>
+    <p class="cap-desc">Complete workforce safety infrastructure — background screening, drug testing program management, OSHA coordination, and ISO 45001-aligned safety documentation for fab environments.</p>
+    <div class="cap-progress-row"><div class="cap-progress-bar-wrap"><div class="cap-progress-bar-fill" id="bar-2" style="width:0%"></div></div><span class="cap-progress-text" id="prog-text-2">0 of 0 complete</span></div>
+  </div>
+  <div class="cap-body">
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">A</span><span class="section-block-title">Background Screening &amp; Workforce Vetting</span><span class="section-block-badge">Pre-Access</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">Background screening is a <strong>condition of access</strong> on semiconductor sites. The screening program must be consistent, documented, and defensible. Every screening decision must be logged with the criteria used.</div></div>
+      <div class="callout callout-warn"><span class="callout-icon">! WARN</span><div class="callout-text"><strong>FCRA compliance required:</strong> Background checks must comply with the Fair Credit Reporting Act. Use a compliant third-party consumer reporting agency. Obtain written consent before screening. Follow adverse action procedures — failure to do so creates legal liability for Precision.</div></div>
+      <div class="checklist" data-cap="2">
+        <div class="check-item" data-key="c2_a_0" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Select and contract FCRA-compliant background screening vendor</div><div class="check-detail">Vendor must provide: criminal history (federal + county), sex offender registry, SSN trace, employment verification, education verification. Confirm they provide FCRA-compliant adverse action notices and consumer dispute resolution.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c2_a_0',this)">Notes <span class="note-count" id="nc_c2_a_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_a_0"></div>
+        <div class="check-item" data-key="c2_a_1" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Document screening criteria and adjudication matrix</div><div class="check-detail">Define clearly: what results automatically disqualify, what results require case-by-case review, and who has authority to make final access decisions. Apply criteria consistently — inconsistent application creates discrimination liability.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c2_a_1',this)">Notes <span class="note-count" id="nc_c2_a_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_a_1"></div>
+        <div class="check-item" data-key="c2_a_2" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create adverse action procedure and documentation</div><div class="check-detail">FCRA requires a two-step process: (1) Pre-adverse action notice with copy of report and Summary of Rights; (2) Reasonable waiting period (typically 5 business days); (3) Final adverse action notice if decision stands. File all notices for 7 years.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c2_a_2',this)">Notes <span class="note-count" id="nc_c2_a_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_a_2"></div>
+        <div class="check-item" data-key="c2_a_3" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build screening status tracking log</div><div class="check-detail">Track every candidate: name, date consent received, date submitted, date results received, adjudication outcome, decision date, decision maker, adverse action sent (if applicable).</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c2_a_3',this)">Notes <span class="note-count" id="nc_c2_a_3"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_a_3"></div>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">B</span><span class="section-block-title">Drug Testing Program Management</span><span class="section-block-badge">Required</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">Drug testing programs must be <strong>written, published, and consistently applied</strong>. The program must define testing types, substances tested, collection procedures, MRO process, and consequences of positive results.</div></div>
+      <div class="checklist" data-cap="2">
+        <div class="check-item" data-key="c2_b_0" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Draft written drug and alcohol testing policy</div><div class="check-detail">Policy must cover: program scope, testing occasions (pre-employment, random, post-incident, reasonable suspicion, return-to-duty), substances tested (DOT 5-panel minimum), collection method, MRO review process, consequences of positive/refusal, employee rights, and confidentiality protections.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c2_b_0',this)">Notes <span class="note-count" id="nc_c2_b_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_b_0"></div>
+        <div class="check-item" data-key="c2_b_1" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Contract certified collection site and MRO</div><div class="check-detail">Collection must occur at a SAMHSA-certified lab using DOT chain-of-custody procedures. MRO must be a licensed physician. Get written agreements specifying turnaround time, result reporting method, and MRO availability for split sample requests.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c2_b_1',this)">Notes <span class="note-count" id="nc_c2_b_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_b_1"></div>
+        <div class="check-item" data-key="c2_b_2" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build drug test results and compliance tracking log</div><div class="check-detail">Maintain confidential log of all tests. Store actual test results separately in individual confidential files. Access restricted to authorized personnel only.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c2_b_2',this)">Notes <span class="note-count" id="nc_c2_b_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_b_2"></div>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">C</span><span class="section-block-title">OSHA Safety Training &amp; Incident Management</span><span class="section-block-badge">Ongoing</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">OSHA compliance is about <strong>documented proof that you took required precautions</strong>. Maintain the OSHA 300 log even if you have zero incidents — an empty log is valid evidence; a missing log is a violation.</div></div>
+      <div class="callout callout-info"><span class="callout-icon">i INFO</span><div class="callout-text"><strong>ISO 45001 alignment:</strong> GlobalFoundries, Micron, and Intel require ISO 45001. Document your OSHA program in ISO 45001 structure: hazard identification, risk assessment, operational controls, performance monitoring, and management review.</div></div>
+      <div class="checklist" data-cap="2">
+        <div class="check-item" data-key="c2_c_0" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Verify OSHA 10/30 certification status for all site personnel</div><div class="check-detail">Confirm and document OSHA 10 for all workers, OSHA 30 for all supervisors. Cards must be from OSHA-authorized providers. Some fab sites require training within the past 5 years — confirm client requirements. Store copies of all cards in individual files.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c2_c_0',this)">Notes <span class="note-count" id="nc_c2_c_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_c_0"></div>
+        <div class="check-item" data-key="c2_c_1" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Establish OSHA 300 log and maintain annually</div><div class="check-detail">OSHA 300 log is required for employers with 10+ employees. OSHA 300A summary must be posted February 1 – April 30 each year. Retain logs for 5 years. Even with zero incidents, maintain the log.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c2_c_1',this)">Notes <span class="note-count" id="nc_c2_c_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_c_1"></div>
+        <div class="check-item" data-key="c2_c_2" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create incident reporting and investigation procedure</div><div class="check-detail">For any injury, near-miss, or hazardous condition: initial report within 24 hours, investigation within 72 hours, root cause analysis documented, corrective actions assigned with due dates and owner, close-out verification. Near-misses treated with same rigor as actual incidents.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c2_c_2',this)">Notes <span class="note-count" id="nc_c2_c_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_c_2"></div>
+        <div class="check-item" data-key="c2_c_3" data-cap="2" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build safety inspection checklist for site visits</div><div class="check-detail">Weekly/bi-weekly safety walk covering: PPE compliance, housekeeping, emergency exit access, fire extinguisher inspection dates, first aid kit inventory, hazardous material storage, signage, and equipment condition. Signed by inspector, dated, filed.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c2_c_3',this)">Notes <span class="note-count" id="nc_c2_c_3"></span></button></div></div>
+        <div class="note-drawer" id="nd_c2_c_3"></div>
+      </div>
+    </div>
+    <div id="done-2" class="done-banner"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="#2D6B22"/><polyline points="5.5,10 8.5,13 14.5,7" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><div><div class="done-banner-text">Capability 3 complete!</div><div class="done-banner-sub">Safety &amp; Risk Compliance checklist finished.</div></div></div>
+  </div>
+</div>
+
+<!-- CAP 3 -->
+<div class="cap-panel" data-cap="3">
+  <div class="cap-hero" data-num="04">
+    <div class="cap-tag">Capability 04 · EE / Instrumentation</div>
+    <h1 class="cap-title">Electronics &amp;<br>Instrumentation</h1>
+    <p class="cap-desc">In-house NYIT-credentialed electronics engineer providing facility-side diagnostics, sensor calibration, PCB analysis, and sub-fab instrumentation support without OEM certification delays.</p>
+    <div class="cap-progress-row"><div class="cap-progress-bar-wrap"><div class="cap-progress-bar-fill" id="bar-3" style="width:0%"></div></div><span class="cap-progress-text" id="prog-text-3">0 of 0 complete</span></div>
+  </div>
+  <div class="cap-body">
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">A</span><span class="section-block-title">Sensor Calibration Program</span><span class="section-block-badge">ANSI/ESD Priority</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">Fab environmental tolerances are tight — deviations of 1–2% can cause yield failures worth millions. <strong>Every instrument used to control these parameters must be calibrated on a documented schedule with a traceable standard.</strong></div></div>
+      <div class="callout callout-warn"><span class="callout-icon">! WARN</span><div class="callout-text"><strong>ANSI/ESD S20.20 (Micron):</strong> Suppliers handling electronics must demonstrate ESD control — documented ESD training for all handlers, calibrated wrist strap testers, and a written ESD control plan. Non-compliant suppliers can be removed without warning.</div></div>
+      <div class="checklist" data-cap="3">
+        <div class="check-item" data-key="c3_a_0" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Build instrument calibration register</div><div class="check-detail">Every instrument in the register: unique instrument ID, description, location, calibration standard used, calibration interval, last calibration date, next due date, calibration result, and calibration provider. Instruments past due must be flagged and taken out of service.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c3_a_0',this)">Notes <span class="note-count" id="nc_c3_a_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_a_0"></div>
+        <div class="check-item" data-key="c3_a_1" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Establish calibration procedure for each instrument type</div><div class="check-detail">Document calibration method for: thermometers/temperature sensors (NIST-traceable reference), humidity sensors (salt solution reference points), pressure gauges, airflow meters. Each procedure must specify acceptable tolerance ranges and out-of-tolerance actions.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c3_a_1',this)">Notes <span class="note-count" id="nc_c3_a_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_a_1"></div>
+        <div class="check-item" data-key="c3_a_2" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create out-of-tolerance response procedure</div><div class="check-detail">When calibration finds an instrument out of tolerance: immediately take out of service, investigate if in-service measurements may have been affected, notify client if affected measurements were used in process decisions, repair/replace, re-calibrate, return to service with documentation. Log in CAPA system.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c3_a_2',this)">Notes <span class="note-count" id="nc_c3_a_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_a_2"></div>
+        <div class="check-item" data-key="c3_a_3" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Draft ESD control plan (ANSI/ESD S20.20 aligned)</div><div class="check-detail">ESD plan must define: EPA (ESD Protected Area) boundaries, required PPE (wrist straps, ESD footwear, smocks), grounding requirements, packaging and handling procedures, testing frequency for ESD control equipment (wrist strap testers daily), training requirements, and audit/verification schedule.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c3_a_3',this)">Notes <span class="note-count" id="nc_c3_a_3"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_a_3"></div>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">B</span><span class="section-block-title">PCB Diagnostics &amp; Electronics Bench</span><span class="section-block-badge">EE Capability</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">The SCAN report identified PCB suppliers and lab support as <strong>active unmet needs in the NY fab ecosystem</strong>. The diagnostics bench must be documented so it can be presented credibly to procurement teams evaluating Precision for facility electronics work.</div></div>
+      <div class="callout callout-tip"><span class="callout-icon">TIP</span><div class="callout-text"><strong>Positioning tip:</strong> Lead with what problems you solve — "We diagnose facility-side PCB failures without requiring OEM access or tool shutdown" — not just credentials. Buyers respond to problems solved.</div></div>
+      <div class="checklist" data-cap="3">
+        <div class="check-item" data-key="c3_b_0" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Document electronics bench capabilities and equipment list</div><div class="check-detail">Inventory all diagnostic equipment: oscilloscope (model, bandwidth), multimeter, power supply, soldering/rework station, magnification equipment, signal generator, LCR meter. For each: model, calibration status, and capability range. This list becomes part of the capability statement.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c3_b_0',this)">Notes <span class="note-count" id="nc_c3_b_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_b_0"></div>
+        <div class="check-item" data-key="c3_b_1" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create PCB diagnostics work order and findings report template</div><div class="check-detail">Every diagnostics job must produce a written report: client name, date received, board description and part number, symptoms reported, visual inspection findings, test results, root cause determination, recommended repair or replacement, repair actions taken, and technician sign-off.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c3_b_1',this)">Notes <span class="note-count" id="nc_c3_b_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_b_1"></div>
+        <div class="check-item" data-key="c3_b_2" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Document cleanroom-compatible work procedures</div><div class="check-detail">Electronics work in or adjacent to cleanroom environments requires contamination control: no outside tools without cleaning protocols, no soldering or chemical use without approved ventilation, components stored in ESD-safe cleanroom-compatible packaging.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c3_b_2',this)">Notes <span class="note-count" id="nc_c3_b_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_b_2"></div>
+      </div>
+    </div>
+    <div class="section-block">
+      <div class="section-block-header"><span class="section-block-num">C</span><span class="section-block-title">Environmental Monitoring &amp; Data Logging</span><span class="section-block-badge">Facility Support</span></div>
+      <div class="guidance-box"><div class="guidance-label">Guidance</div><div class="guidance-text">When Precision installs or supports an EMS, <strong>the system's data integrity becomes Precision's responsibility</strong>. Set-up documentation, data backup procedures, and alarm response protocols must all be documented before the system goes live.</div></div>
+      <div class="checklist" data-cap="3">
+        <div class="check-item" data-key="c3_c_0" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Create EMS installation and configuration documentation template</div><div class="check-detail">For each system installed: sensor locations (with diagram), alarm setpoints and rationale, data logging interval, data backup schedule and location, network/integration configuration, access credentials management, and as-built documentation. Client receives a copy at project close-out.</div></div><div class="check-right"><div class="check-priority priority-high">High</div><button class="note-btn" onclick="toggleNotes(event,'c3_c_0',this)">Notes <span class="note-count" id="nc_c3_c_0"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_c_0"></div>
+        <div class="check-item" data-key="c3_c_1" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Develop alarm response procedure for environmental excursions</div><div class="check-detail">Define response for each alarm type: who is notified (and in what sequence), what immediate actions are taken, when to escalate to client or fab engineering team, how the excursion is documented, and when production activities must be halted. Required for ISO 14001 alignment.</div></div><div class="check-right"><div class="check-priority priority-med">Med</div><button class="note-btn" onclick="toggleNotes(event,'c3_c_1',this)">Notes <span class="note-count" id="nc_c3_c_1"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_c_1"></div>
+        <div class="check-item" data-key="c3_c_2" data-cap="3" onclick="handleCheck(this)"><div class="check-box"><svg class="check-mark" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="check-content"><div class="check-title">Document cable harness and low-voltage work procedures</div><div class="check-detail">For cable fabrication: wire gauge standards per application, connector crimping procedures and inspection criteria, continuity test procedure (100% continuity and isolation testing required before delivery), labeling standards, and work order documentation. Test results must be recorded on the work order.</div></div><div class="check-right"><div class="check-priority priority-low">Low</div><button class="note-btn" onclick="toggleNotes(event,'c3_c_2',this)">Notes <span class="note-count" id="nc_c3_c_2"></span></button></div></div>
+        <div class="note-drawer" id="nd_c3_c_2"></div>
+      </div>
+    </div>
+    <div id="done-3" class="done-banner"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="9" fill="#2D6B22"/><polyline points="5.5,10 8.5,13 14.5,7" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><div><div class="done-banner-text">Capability 4 complete!</div><div class="done-banner-sub">Electronics &amp; Instrumentation checklist finished.</div></div></div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div class="cap-panel" data-cap="admin">
+  <div class="cap-hero" data-num="ADM">
+    <div class="cap-tag">Admin · Team Overview</div>
+    <h1 class="cap-title">Team Dashboard</h1>
+    <p class="cap-desc">Track your team's progress across all four capabilities, manage user accounts, and review recent activity.</p>
+  </div>
+  <div class="admin-body">
+    <div class="admin-section">
+      <div class="stat-grid" id="admin-stat-grid">
+        <div class="stat-card"><div class="stat-num" id="stat-users">—</div><div class="stat-label">Team members</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-checked">—</div><div class="stat-label">Items checked off</div></div>
+        <div class="stat-card"><div class="stat-num" id="stat-total-items">44</div><div class="stat-label">Total checklist items</div></div>
+      </div>
+    </div>
+    <div class="admin-section">
+      <div class="admin-section-title">Team members</div>
+      <table class="team-table">
+        <thead><tr><th>Name</th><th>Progress</th><th>Role</th><th>Last active</th><th>Actions</th></tr></thead>
+        <tbody id="team-tbody"></tbody>
+      </table>
+    </div>
+    <div class="admin-section">
+      <div class="admin-section-title">Recent activity</div>
+      <div class="recent-list" id="recent-list"></div>
+    </div>
+  </div>
+</div>
+
+</main>
+</div>
+
+<div class="save-indicator" id="save-ind">Saving...</div>
+
+<script>
+const API = '';
+let TOKEN = localStorage.getItem('phcc_token');
+let USER  = JSON.parse(localStorage.getItem('phcc_user') || 'null');
+let notesCache = {};
+let saveTimer = null;
+
+async function api(path, opts={}) {
+  const headers = {'Content-Type':'application/json'};
+  if (TOKEN) headers['Authorization'] = 'Bearer ' + TOKEN;
+  const r = await fetch(API + path, {...opts, headers: {...headers, ...(opts.headers||{})}});
+  const data = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function showSaving(msg='Saved') {
+  const el = document.getElementById('save-ind');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+
+/* ── Auth ── */
+function switchTab(tab) {
+  document.getElementById('login-form').style.display    = tab==='login'    ? '' : 'none';
+  document.getElementById('register-form').style.display = tab==='register' ? '' : 'none';
+  document.getElementById('tab-login').classList.toggle('active',    tab==='login');
+  document.getElementById('tab-register').classList.toggle('active', tab==='register');
+  document.getElementById('auth-title').textContent = tab==='login' ? 'Sign in' : 'Create account';
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-password').value;
+  try {
+    const data = await api('/api/auth/login', {method:'POST', body:JSON.stringify({email,password:pass})});
+    setSession(data);
+  } catch(e) { showAuthError(e.message); }
+}
+
+async function doRegister() {
+  const name   = document.getElementById('reg-name').value.trim();
+  const email  = document.getElementById('reg-email').value.trim();
+  const pass   = document.getElementById('reg-password').value;
+  const invite = document.getElementById('reg-invite').value.trim();
+  try {
+    const data = await api('/api/auth/register', {method:'POST', body:JSON.stringify({name,email,password:pass,invite})});
+    setSession(data);
+  } catch(e) { showAuthError(e.message); }
+}
+
+function setSession(data) {
+  TOKEN = data.token;
+  USER  = {id:data.id, name:data.name, role:data.role};
+  localStorage.setItem('phcc_token', TOKEN);
+  localStorage.setItem('phcc_user', JSON.stringify(USER));
+  bootApp();
+}
+
+function logout() {
+  TOKEN = null; USER = null;
+  localStorage.removeItem('phcc_token');
+  localStorage.removeItem('phcc_user');
+  location.reload();
+}
+
+/* ── Boot ── */
+async function bootApp() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('app-screen').classList.add('show');
+  document.getElementById('sidebar-user').textContent = USER.name + (USER.role==='admin' ? ' · admin' : '');
+  if (USER.role === 'admin') document.getElementById('admin-nav-item').style.display = '';
+  await loadProgress();
+  document.getElementById('loader').classList.add('hide');
+}
+
+/* ── Progress ── */
+async function loadProgress() {
+  try {
+    const data = await api('/api/progress');
+    document.querySelectorAll('.check-item').forEach(item => {
+      const key = item.dataset.key;
+      if (data[key] && data[key].done) item.classList.add('done');
+    });
+    updateAllProgress();
+    await loadAllNoteCounts();
+  } catch(e) { console.warn('Progress load error', e); }
+}
+
+async function handleCheck(item) {
+  item.classList.toggle('done');
+  const key  = item.dataset.key;
+  const cap  = parseInt(item.dataset.cap);
+  const done = item.classList.contains('done');
+  updateAllProgress();
+  showSaving('Saving...');
+  try {
+    await api('/api/progress', {method:'POST', body:JSON.stringify({item_key:key, cap_id:cap, done})});
+    showSaving('Saved');
+  } catch(e) { showSaving('Save failed'); }
+}
+
+function updateAllProgress() {
+  let totalAll=0, doneAll=0;
+  [0,1,2,3].forEach(cap => {
+    const panel  = document.querySelector(`.cap-panel[data-cap="${cap}"]`);
+    const items  = panel.querySelectorAll('.check-item');
+    const doneN  = panel.querySelectorAll('.check-item.done').length;
+    const total  = items.length;
+    totalAll += total; doneAll += doneN;
+    const pct = total > 0 ? Math.round((doneN/total)*100) : 0;
+    document.getElementById(`bar-${cap}`).style.width = pct+'%';
+    document.getElementById(`prog-text-${cap}`).textContent = `${doneN} of ${total} complete`;
+    document.getElementById(`nav-prog-${cap}`).textContent  = `${doneN} / ${total}`;
+    const banner = document.getElementById(`done-${cap}`);
+    if (banner) banner.classList.toggle('visible', doneN===total && total>0);
+  });
+  const gPct = totalAll>0 ? Math.round((doneAll/totalAll)*100) : 0;
+  document.getElementById('global-bar').style.width = gPct+'%';
+  document.getElementById('global-done').textContent  = doneAll;
+  document.getElementById('global-total').textContent = totalAll + ' tasks';
+}
+
+/* ── Navigation ── */
+function showCap(cap) {
+  document.querySelectorAll('.cap-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.cap-nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelector(`.cap-panel[data-cap="${cap}"]`).classList.add('active');
+  document.querySelector(`.cap-nav-item[data-cap="${cap}"]`).classList.add('active');
+  document.getElementById('main-content').scrollTop = 0;
+  if (cap === 'admin') loadAdminData();
+}
+
+/* ── Notes ── */
+async function loadAllNoteCounts() {
+  const keys = [...document.querySelectorAll('.check-item')].map(i=>i.dataset.key);
+  await Promise.all(keys.map(async key => {
+    try {
+      const notes = await api(`/api/notes/${key}`);
+      notesCache[key] = notes;
+      updateNoteCount(key, notes.length);
+    } catch(e) {}
+  }));
+}
+
+function updateNoteCount(key, count) {
+  const el = document.getElementById(`nc_${key}`);
+  if (el) el.textContent = count > 0 ? count : '';
+}
+
+function toggleNotes(e, key, btn) {
+  e.stopPropagation();
+  const drawer = document.getElementById(`nd_${key}`);
+  const isOpen = drawer.classList.contains('open');
+  document.querySelectorAll('.note-drawer.open').forEach(d=>d.classList.remove('open'));
+  if (!isOpen) {
+    drawer.classList.add('open');
+    renderNoteDrawer(key, drawer);
+  }
+}
+
+function renderNoteDrawer(key, drawer) {
+  const notes = notesCache[key] || [];
+  const noteHtml = notes.length ? notes.map(n => `
+    <div class="note-item" id="note-${n.id}">
+      <div class="note-author">${esc(n.author)}</div>
+      <div class="note-text">${esc(n.note)}</div>
+      <div class="note-time">${formatDate(n.created_at)}</div>
+      ${(USER.role==='admin'||true) ? `<button class="note-delete" onclick="deleteNote(event,'${key}',${n.id})">&times;</button>` : ''}
+    </div>`).join('') : '<div style="font-size:12px;color:var(--ink3);margin-bottom:8px">No notes yet.</div>';
+  drawer.innerHTML = `
+    <div class="note-list">${noteHtml}</div>
+    <div class="note-add-row">
+      <input class="note-input" id="ni_${key}" placeholder="Add a note for the team..." onkeydown="if(event.key==='Enter')submitNote('${key}')">
+      <button class="note-submit" onclick="submitNote('${key}')">Add</button>
+    </div>`;
+}
+
+async function submitNote(key) {
+  const input = document.getElementById(`ni_${key}`);
+  const note  = input.value.trim();
+  if (!note) return;
+  try {
+    const newNote = await api('/api/notes', {method:'POST', body:JSON.stringify({item_key:key,note})});
+    if (!notesCache[key]) notesCache[key] = [];
+    notesCache[key].unshift(newNote);
+    updateNoteCount(key, notesCache[key].length);
+    input.value = '';
+    const drawer = document.getElementById(`nd_${key}`);
+    renderNoteDrawer(key, drawer);
+  } catch(e) { alert('Could not save note: ' + e.message); }
+}
+
+async function deleteNote(e, key, id) {
+  e.stopPropagation();
+  if (!confirm('Delete this note?')) return;
+  try {
+    await api(`/api/notes/${id}`, {method:'DELETE'});
+    notesCache[key] = (notesCache[key]||[]).filter(n=>n.id!==id);
+    updateNoteCount(key, notesCache[key].length);
+    const drawer = document.getElementById(`nd_${key}`);
+    renderNoteDrawer(key, drawer);
+  } catch(e) { alert('Could not delete note.'); }
+}
+
+/* ── Admin ── */
+async function loadAdminData() {
+  try {
+    const [team, stats] = await Promise.all([api('/api/admin/team'), api('/api/admin/stats')]);
+    document.getElementById('stat-users').textContent   = stats.total_users;
+    document.getElementById('stat-checked').textContent = stats.total_checked;
+    renderTeamTable(team);
+    renderRecentActivity(stats.recent);
+  } catch(e) { console.warn('Admin load error', e); }
+}
+
+function renderTeamTable(team) {
+  const tbody = document.getElementById('team-tbody');
+  tbody.innerHTML = team.map(u => {
+    const caps = [0,1,2,3].map(c => {
+      const p = u.cap_progress[c] || {total:0,done:0};
+      const pct = p.total>0 ? Math.round((p.done/p.total)*100) : 0;
+      return `<div class="mini-bar-wrap"><div class="mini-bar-fill c${c}" style="width:${pct}%"></div></div>`;
+    }).join('');
+    const lastActive = u.last_login ? formatDate(u.last_login) : 'Never';
+    const isMe = u.id === USER.id;
+    return `<tr>
+      <td><div class="member-name">${esc(u.name)}${isMe?' (you)':''}</div><div class="member-email">${esc(u.email)}</div></td>
+      <td><div class="mini-bars">${caps}</div></td>
+      <td><span class="role-badge role-${u.role}">${u.role}</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink3)">${lastActive}</td>
+      <td style="display:flex;gap:6px;flex-wrap:wrap">
+        ${!isMe && u.role!=='admin' ? `<button class="action-btn" onclick="promoteUser(${u.id})">Make admin</button>` : ''}
+        ${!isMe ? `<button class="action-btn danger" onclick="removeUser(${u.id},'${esc(u.name)}')">Remove</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function renderRecentActivity(recent) {
+  const el = document.getElementById('recent-list');
+  if (!recent.length) { el.innerHTML = '<div style="font-size:12px;color:var(--ink3);padding:12px 0">No activity yet.</div>'; return; }
+  el.innerHTML = recent.map(r => `
+    <div class="recent-item">
+      <span class="recent-who">${esc(r.name)}</span>
+      <span class="recent-key">${r.item_key}</span>
+      <span class="recent-time">${formatDate(r.updated_at)}</span>
+    </div>`).join('');
+}
+
+async function promoteUser(id) {
+  if (!confirm('Make this user an admin?')) return;
+  try {
+    await api(`/api/admin/users/${id}/role`, {method:'PUT', body:JSON.stringify({role:'admin'})});
+    loadAdminData();
+  } catch(e) { alert(e.message); }
+}
+
+async function removeUser(id, name) {
+  if (!confirm(`Remove ${name} from the team? This cannot be undone.`)) return;
+  try {
+    await api(`/api/admin/users/${id}`, {method:'DELETE'});
+    loadAdminData();
+  } catch(e) { alert(e.message); }
+}
+
+/* ── Utilities ── */
+function esc(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatDate(str) {
+  if (!str) return '';
+  try {
+    const d = new Date(str.includes('T') ? str : str + 'Z');
+    return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}) + ' ' +
+           d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+  } catch(e) { return str; }
+}
+
+/* ── Enter key bindings ── */
+document.getElementById('login-password').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+document.getElementById('login-email').addEventListener('keydown',    e=>{ if(e.key==='Enter') doLogin(); });
+
+/* ── Init ── */
+if (TOKEN && USER) {
+  bootApp();
+} else {
+  document.getElementById('loader').classList.add('hide');
+  document.getElementById('auth-screen').style.display = 'flex';
+}
+</script>
+</body>
+</html>
