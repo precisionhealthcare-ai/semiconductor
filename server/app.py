@@ -17,7 +17,7 @@ BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR   = os.path.dirname(BASE_DIR)
 # DB_PATH    = os.path.join(ROOT_DIR, 'db', 'precision_ops.db')
 # This line contains the modified path line
-DB_PATH    = /opt/render/project/src/db/precision_ops.db
+DB_PATH    = '/opt/render/project/src/db/precision_ops.db'
 PUBLIC_DIR = os.path.join(ROOT_DIR, 'public')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'precision-hcc-change-in-production-2024')
 TOKEN_HOURS = 72
