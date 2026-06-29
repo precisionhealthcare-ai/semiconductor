@@ -20,12 +20,7 @@ ROOT_DIR   = os.path.dirname(BASE_DIR)
 DB_PATH    = '/opt/render/project/src/db/precision_ops.db'
 PUBLIC_DIR = os.path.join(ROOT_DIR, 'public')
 # SECRET_KEY = os.environ.get('SECRET_KEY', 'precision-hcc-change-in-production-2024')
-SECRET_KEY = os.environ.get('SECRET_KEY', 'qLe0ofAr97YMGiyyyyWFgoLdLrvf6mT29K38hdL1bNAtSDw1R6NYjeDEXSQ4xHXb
-r8Zh/ZDJGawN1yzjGyiYquT6W9VjjJowAbFC1C3N4L2hUwsIk3WHvwUZNoRMutwb
-co1MnaVmDYtYrym5RiAKKXKwqsaSdMX53/RKTGncjGoltFOc7UZO1+R23Fpd66Jw
-JmpE61CpT4SVex5R9qDB0D6e/A7OCvhvg93F4R8m4x/JLrgUA2NlFFMBmioblnPj
-eUjWgkck4SmkbLOOZUwcKmPcv+IAi74sg8NOwRzqrPk0TmEMfNLwJ4/5FRLIzJJu
-xVdP+MoOIQM+lgdoOsuWMQ==')
+SECRET_KEY = os.environ.get('SECRET_KEY', 'qLe0ofAr97YMGiyyyyWFgoLdLrvf6mT29K38hdL1bNAtSDw1R6NYjeDEXSQ4xHXb')
 TOKEN_HOURS = 72
 
 app = Flask(__name__, static_folder=PUBLIC_DIR, static_url_path='')
